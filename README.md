@@ -11,17 +11,15 @@ We **serve** <sub>(prabandh)</sub> everthing, everywhere (provided you already h
 </p>
 
 
-## Why?
-
 
 ## Setup & Installation
 ```bash
 pip install poetry
 poetry install
-./prabandh
 ```
 
-## Endpoints
-- /index            [POST]
-- /index/bulk       [POST]
-- /search? Query    [GET]
+## Run
+```bach
+docker compose up -d
+poetry run python main.py
+```
