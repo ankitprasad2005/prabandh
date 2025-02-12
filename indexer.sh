@@ -2,8 +2,13 @@
 # Default to current directory if no argument provided
 SEARCH_DIR="${1:-.}"
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-IGNORE_FILE="$SCRIPT_DIR/.gitignore"
-CACHE_FILE="$SCRIPT_DIR/index_cache.csv"
+IGNORE_FILE="$SCRIPT_DIR/.indexignore"
+CACHE_FILE="$HOME/.cache/prabandh_cache.csv"
+
+mkdir -p "$(dirname "$CACHE_FILE")"
+if [ ! -f "$CACHE_FILE" ]; then
+    touch "$CACHE_FILE"
+fi
 
 # Function to display usage
 usage() {
