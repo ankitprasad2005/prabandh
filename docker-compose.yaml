@@ -11,7 +11,7 @@ services:
     ports:
       - "${DB_PORT}:5432"
     volumes:
-      - ${DATA}:/var/lib/postgresql/data
+      - prabandh_pg_data:/var/lib/postgresql/data
 
   pgadmin:
     image: dpage/pgadmin4
@@ -25,4 +25,5 @@ services:
       - db
 
 volumes:
-  postgres_data:
+  prabandh_pg_data:
+    driver: local
