@@ -1,2 +1,10 @@
+<<<<<<< Updated upstream
 .env 
 .venv/
+=======
+.env/
+.venv/
+.env
+data/
+src/prisma/.env
+>>>>>>> Stashed changes
