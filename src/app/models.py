@@ -16,7 +16,7 @@ class File(Base):
     modified = Column(DateTime, nullable=False)
     size = Column(Integer, nullable=False)
     hash = Column(String, nullable=False)
-    keywords = relationship("Keyword", back_populates="file")
+    keywords = relationship("Keyword", back_populates="files")
 
     # __table_args__ = (
     #     UniqueConstraint('hash', 'size', 'extension', name='_hash_size_extension_uc'),
@@ -28,4 +28,4 @@ class Keyword(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
     keyword = Column(String, nullable=False)
     file_id = Column(String, ForeignKey('file.id'), nullable=False)
-    file = relationship("File", back_populates="keywords")
+    files = relationship("File", back_populates="keywords")
