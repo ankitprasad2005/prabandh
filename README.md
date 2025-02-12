@@ -15,6 +15,13 @@ We **serve** <sub>(prabandh)</sub> everthing, everywhere (provided you already h
 
 
 ## Setup & Installation
-``` bash
-
+```bash
+pip install poetry
+poetry install
+./prabandh
 ```
+
+## Endpoints
+- /index            [POST]
+- /index/bulk       [POST]
+- /search? Query    [GET]
