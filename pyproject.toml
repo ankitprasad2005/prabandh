@@ -1,21 +1,16 @@
-[project]
+[tool.poetry]
 name = "prabandh"
 version = "0.1.0"
-description = ""
-authors = [
-    {name = "ankitprasad2005",email = "ankitprasad2005@outlook.com"}
-]
+description = "A cloud synced, ai based file system management tool"
+authors = ["Aditya Jyoti aj.adityajyoti@gmail.com, Ankit Prasad ankitprasad2005@gmail.com"]
+license = ""
 readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "fastapi (>=0.115.8,<0.116.0)",
-    "sqlalchemy (>=2.0.38,<3.0.0)",
-    "pydantic (>=2.10.6,<3.0.0)",
-    "gunicorn (>=23.0.0,<24.0.0)",
-    "uvicorn (>=0.34.0,<0.35.0)"
-]
+
+[tool.poetry.dependencies]
+python = "^3.13"
+uuid = "^1.30"
 
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
