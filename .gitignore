@@ -1,5 +1,8 @@
+.env 
+.venv/
 .env/
 .venv/
-.env
+
 data/
 src/prisma/.env
+archieve/

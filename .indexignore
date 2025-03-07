@@ -62,3 +62,4 @@ id_rsa.pub
 *.swp  
 
 .astro
+*/.config/*
