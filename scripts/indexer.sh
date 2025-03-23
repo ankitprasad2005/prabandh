@@ -18,7 +18,7 @@ create_table_if_not_exists() {
     local db_name="prabandh_pg"
     local db_user="${PG_USERNAME}"
     local db_password="${PG_PASSWD}"
-    local db_host="localhost"
+    local db_host="172.18.0.2"
     local db_port="${DB_PORT}"
 
     PGPASSWORD="$db_password" psql -h "$db_host" -p "$db_port" -U "$db_user" -d "$db_name" -c "

@@ -28,7 +28,7 @@ add_entry() {
 
     # SQL query to insert or update the data
     local sql_query="
-    INSERT INTO file (id, file_name, file_path, extension, created, modified, size, hash)
+    INSERT INTO file_index (id, file_name, file_path, extension, created, modified, size, hash)
     VALUES (
         gen_random_uuid(), 
         '$filename', 
@@ -50,7 +50,7 @@ add_entry() {
     "
 
     # Execute the SQL query
-    PGPASSWORD="$PG_PASSWD" psql -h db -p "$DB_PORT" -U "$PG_USERNAME" -d "prabandh_pg" -c "$sql_query"
+    PGPASSWORD="$PG_PASSWD" psql -h localhost -p "$DB_PORT" -U "$PG_USERNAME" -d "prabandh_pg" -c "$sql_query"
     
     if [ $? -eq 0 ]; then
         echo "Entry added/updated successfully."
