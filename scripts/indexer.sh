@@ -10,6 +10,29 @@ if [ ! -f "$CACHE_FILE" ]; then
     touch "$CACHE_FILE"
 fi
 
+# Load environment variables from .env file
+source "$(dirname "$(readlink -f "$0")")/../.env"
+
+# Function to create PostgreSQL table if it doesn't exist
+create_table_if_not_exists() {
+    local db_name="prabandh_pg"
+    local db_user="${PG_USERNAME}"
+    local db_password="${PG_PASSWD}"
+    local db_host="localhost"
+    local db_port="${DB_PORT}"
+
+    PGPASSWORD="$db_password" psql -h "$db_host" -p "$db_port" -U "$db_user" -d "$db_name" -c "
+    CREATE TABLE IF NOT EXISTS file_index (
+        directory_path TEXT,
+        file_name TEXT,
+        extension TEXT,
+        created_date TIMESTAMP,
+        modified_date TIMESTAMP,
+        size_bytes BIGINT,
+        sha256_hash TEXT
+    );"
+}
+
 # Function to display usage
 usage() {
     echo "Usage: $(basename "$0") [directory]"
