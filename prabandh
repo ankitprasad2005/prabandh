@@ -28,9 +28,8 @@ add_entry() {
 
     # SQL query to insert or update the data
     local sql_query="
-    INSERT INTO file_index (id, file_name, file_path, extension, created, modified, size, hash)
+    INSERT INTO file_index (file_name, file_path, extension, created_date, modified_date, size, hash)
     VALUES (
-        gen_random_uuid(), 
         '$filename', 
         '$dirpath', 
         '$extension', 
@@ -43,8 +42,8 @@ add_entry() {
     DO UPDATE SET 
         file_name = EXCLUDED.file_name,
         extension = EXCLUDED.extension,
-        created = EXCLUDED.created,
-        modified = EXCLUDED.modified,
+        created_date = EXCLUDED.created_date,
+        modified_date = EXCLUDED.modified_date,
         size = EXCLUDED.size,
         hash = EXCLUDED.hash;
     "
@@ -173,11 +172,32 @@ import_csv() {
         add_from_csv_line "$line"
     done
     
-    echo "CSV import completed."
+}
+
+# Function to make the database
+create_table_if_not_exists() {
+    local db_name="prabandh_pg"
+    local db_user="${PG_USERNAME}"
+    local db_password="${PG_PASSWD}"
+    local db_host="localhost"
+    local db_port="${DB_PORT}"
+
+    PGPASSWORD="$db_password" psql -h "$db_host" -p "$db_port" -U "$db_user" -d "$db_name" -c "
+    CREATE TABLE IF NOT EXISTS file_index (
+        file_path TEXT UNIQUE,
+        file_name TEXT,
+        extension TEXT,
+        created_date TIMESTAMP,
+        modified_date TIMESTAMP,
+        size BIGINT,
+        hash TEXT
+    );"
 }
 
 # Function to index a directory
 index_directory() {
+    create_table_if_not_exists
+
     local directory="${1:-.}"
     
     # Resolve the directory to its absolute path
