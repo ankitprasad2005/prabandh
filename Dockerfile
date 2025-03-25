@@ -8,7 +8,7 @@ RUN go mod download
 
 COPY . ./
 
-RUN go build -o /prabandh
+RUN go build -o /prabandh ./main.go ./models ./database ./indexer
 
 EXPOSE 8080
 

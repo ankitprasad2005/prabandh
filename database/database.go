@@ -21,7 +21,7 @@ func Connect() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	err = DB.AutoMigrate(&models.FileIndex{})
+	err = DB.AutoMigrate(&models.FileIndex{}, &models.FileSummary{})
 	if err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
