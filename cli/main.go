@@ -148,35 +148,85 @@ func handleOperation(operation, input string) string {
 	case "search_files_and_summaries":
 		query := strings.TrimSpace(input)
 		var result strings.Builder
+		var fileSearchResult, summarySearchResult string
+		var fileSearchErr, summarySearchErr error
 
-		// Search for files
-		result.WriteString("Files:\n")
-		rows, err := database.DB.Raw("SELECT file_name FROM file_indices WHERE file_name LIKE ?", "%"+query+"%").Rows()
-		if err != nil {
-			return fmt.Sprintf("Error searching files: %v", err)
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var fileName string
-			if err := rows.Scan(&fileName); err != nil {
-				return fmt.Sprintf("Error reading file result: %v", err)
+		// Channel to signal completion of goroutines
+		done := make(chan struct{}, 2)
+
+		// Search for files in a separate goroutine
+		go func() {
+			var fileResult strings.Builder
+			fileResult.WriteString("Files:\n")
+			rows, err := database.DB.Raw("SELECT file_name FROM file_indices WHERE file_name LIKE ?", "%"+query+"%").Rows()
+			if err != nil {
+				fileSearchErr = fmt.Errorf("Error searching files: %v", err)
+				done <- struct{}{}
+				return
 			}
-			result.WriteString(fileName + "\n")
+			defer rows.Close()
+			found := false
+			for rows.Next() {
+				var fileName string
+				if err := rows.Scan(&fileName); err != nil {
+					fileSearchErr = fmt.Errorf("Error reading file result: %v", err)
+					done <- struct{}{}
+					return
+				}
+				fileResult.WriteString(fileName + "\n")
+				found = true
+			}
+			if !found {
+				fileResult.WriteString("No files found.\n")
+			}
+			fileSearchResult = fileResult.String()
+			done <- struct{}{}
+		}()
+
+		// Search for summaries in a separate goroutine
+		go func() {
+			var summaryResult strings.Builder
+			summaryResult.WriteString("\nSummaries:\n")
+			rows, err := database.DB.Raw("SELECT summary_keyword FROM file_summaries WHERE summary_keyword LIKE ?", "%"+query+"%").Rows()
+			if err != nil {
+				summarySearchErr = fmt.Errorf("Error searching summaries: %v", err)
+				done <- struct{}{}
+				return
+			}
+			defer rows.Close()
+			found := false
+			for rows.Next() {
+				var summaryKeyword string
+				if err := rows.Scan(&summaryKeyword); err != nil {
+					summarySearchErr = fmt.Errorf("Error reading summary result: %v", err)
+					done <- struct{}{}
+					return
+				}
+				summaryResult.WriteString(summaryKeyword + "\n")
+				found = true
+			}
+			if !found {
+				summaryResult.WriteString("No summaries found.\n")
+			}
+			summarySearchResult = summaryResult.String()
+			done <- struct{}{}
+		}()
+
+		// Wait for both goroutines to complete
+		<-done
+		<-done
+
+		// Combine results
+		if fileSearchErr != nil {
+			result.WriteString(fileSearchErr.Error() + "\n")
+		} else {
+			result.WriteString(fileSearchResult)
 		}
 
-		// Search for summaries
-		result.WriteString("\nSummaries:\n")
-		rows, err = database.DB.Raw("SELECT summary_keyword FROM file_summaries WHERE summary_keyword LIKE ?", "%"+query+"%").Rows()
-		if err != nil {
-			return fmt.Sprintf("Error searching summaries: %v", err)
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var summaryKeyword string
-			if err := rows.Scan(&summaryKeyword); err != nil {
-				return fmt.Sprintf("Error reading summary result: %v", err)
-			}
-			result.WriteString(summaryKeyword + "\n")
+		if summarySearchErr != nil {
+			result.WriteString(summarySearchErr.Error() + "\n")
+		} else {
+			result.WriteString(summarySearchResult)
 		}
 
 		return result.String()
