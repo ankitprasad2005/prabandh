@@ -147,11 +147,39 @@ func handleOperation(operation, input string) string {
 		return "Directory deleted successfully!"
 	case "search_files_and_summaries":
 		query := strings.TrimSpace(input)
-		var files []models.FileIndex
-		var summaries []models.FileSummary
-		database.DB.Where("file_name LIKE ?", "%"+query+"%").Find(&files)
-		database.DB.Where("summary_keyword LIKE ?", "%"+query+"%").Find(&summaries)
-		return fmt.Sprintf("Files: %v\nSummaries: %v", files, summaries)
+		var result strings.Builder
+
+		// Search for files
+		result.WriteString("Files:\n")
+		rows, err := database.DB.Raw("SELECT file_name FROM file_indices WHERE file_name LIKE ?", "%"+query+"%").Rows()
+		if err != nil {
+			return fmt.Sprintf("Error searching files: %v", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var fileName string
+			if err := rows.Scan(&fileName); err != nil {
+				return fmt.Sprintf("Error reading file result: %v", err)
+			}
+			result.WriteString(fileName + "\n")
+		}
+
+		// Search for summaries
+		result.WriteString("\nSummaries:\n")
+		rows, err = database.DB.Raw("SELECT summary_keyword FROM file_summaries WHERE summary_keyword LIKE ?", "%"+query+"%").Rows()
+		if err != nil {
+			return fmt.Sprintf("Error searching summaries: %v", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var summaryKeyword string
+			if err := rows.Scan(&summaryKeyword); err != nil {
+				return fmt.Sprintf("Error reading summary result: %v", err)
+			}
+			result.WriteString(summaryKeyword + "\n")
+		}
+
+		return result.String()
 	case "view_whitelisted":
 		var dirs []models.IndexDir
 		database.DB.Where("is_whitelisted = ?", true).Find(&dirs)
