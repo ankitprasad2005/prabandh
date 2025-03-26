@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:latest
@@ -13,24 +11,26 @@ services:
     volumes:
       - prabandh_pg_data:/var/lib/postgresql/data
 
-  # ollama:
-  #   image: ollama/ollama:latest
-  #   ports:
-  #     - ${PORT_OLLAMA}:11434
-  #   volumes:
-  #     - ${DATA}/ollama:/root/.ollama
-  #     - /etc/timezone:/etc/timezone:ro
-  #     - /etc/localtime:/etc/localtime:ro
-  #   command: serve
-  #   restart: unless-stopped
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - driver: nvidia
-  #             count: all
-  #             capabilities:
-  #               - gpu
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - ${PORT_OLLAMA}:11434
+    volumes:
+      - ${DATA}/ollama:/root/.ollama
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      OLLAMA_MODELS: "gemma:2b"
+    command: serve
+    restart: unless-stopped
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities:
+    #             - gpu
 
 volumes:
   prabandh_pg_data:
