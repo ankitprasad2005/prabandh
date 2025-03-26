@@ -30,8 +30,8 @@ func main() {
 
 	// Use routers
 	routers.RegisterFileRoutes(r)
-	routers.RegisterSummaryRoutes(r)
 	routers.RegisterIndexDirRoutes(r)
+	routers.RegisterSummaryRoutes(r, database.DB, "http://localhost:11434") // ollama url
 
 	port := os.Getenv("PORT")
 	if port == "" {

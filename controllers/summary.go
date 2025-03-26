@@ -60,6 +60,36 @@ func (sc *SummaryController) AddFileSummary(c *gin.Context) {
 	})
 }
 
+func (sc *SummaryController) GetFileSummaries(c *gin.Context) {
+	fileName := c.Query("file_name")
+	if fileName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "file_name query parameter is required"})
+		return
+	}
+
+	var fileIndex models.FileIndex
+	if err := sc.db.Where("file_name = ?", fileName).First(&fileIndex).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
+		return
+	}
+
+	var summaries []models.FileSummary
+	if err := sc.db.Where("file_index_id = ?", fileIndex.ID).Find(&summaries).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve summaries"})
+		return
+	}
+
+	keywords := make([]string, len(summaries))
+	for i, summary := range summaries {
+		keywords[i] = summary.SummaryKeyword
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"file_name": fileName,
+		"keywords":  keywords,
+	})
+}
+
 func (sc *SummaryController) generateKeywords(text string) ([]string, error) {
 	const maxRetries = 3
 	var keywords []string
