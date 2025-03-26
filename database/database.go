@@ -15,14 +15,16 @@ var DB *gorm.DB
 
 func Connect() {
 	var err error
-	dsn := os.Getenv("DATABASE_URL")
+	dsn := os.Getenv("DB_URL")
+	if dsn == "" {
+		log.Fatal("DB_URL is not set in the environment")
+	}
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Migrate models
-	err = DB.AutoMigrate(&models.FileIndex{}, &models.FileSummary{})
+	err = DB.AutoMigrate(&models.FileIndex{}, &models.FileSummary{}, &models.IndexDir{})
 	if err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
