@@ -23,14 +23,14 @@ services:
       OLLAMA_MODELS: "gemma:2b"
     command: serve
     restart: unless-stopped
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities:
-    #             - gpu
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities:
+                - gpu
 
 volumes:
   prabandh_pg_data:

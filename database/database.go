@@ -7,6 +7,7 @@ import (
 
 	"prabandh/models"
 
+	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -14,7 +15,13 @@ import (
 var DB *gorm.DB
 
 func Connect() {
-	var err error
+	// Load environment variables
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	// var err error
 	dsn := os.Getenv("DB_URL")
 	if dsn == "" {
 		log.Fatal("DB_URL is not set in the environment")
