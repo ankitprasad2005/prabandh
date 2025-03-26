@@ -1,7 +1,7 @@
 package database
 
 import (
-	"fmt"
+	// "fmt"
 	"log"
 	"os"
 
@@ -41,5 +41,5 @@ func Connect() {
 		log.Printf("Warning: Could not create full-text search index: %v", err)
 	}
 
-	fmt.Println("Database connection established and migrated")
+	// fmt.Println("Database connection established and migrated")
 }
