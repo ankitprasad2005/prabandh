@@ -13,17 +13,30 @@ func NewTextExtractor() *TextExtractor {
 	return &TextExtractor{}
 }
 
-func (te *TextExtractor) ExtractText(filePath string) (string, error) {
-	// Only allow plain text files
+func (te *TextExtractor) SupportedExtensions() []string {
+	return []string{
+		".txt", ".md", ".csv", ".log",
+		".go", ".py", ".js", ".ts",
+		".html", ".css", ".json",
+		".yaml", ".yml", ".sh",
+	}
+}
+
+func (te *TextExtractor) CanExtract(filePath string) bool {
 	ext := strings.ToLower(filepath.Ext(filePath))
-	switch ext {
-	case ".txt", ".md", ".csv", ".log":
-		// These are safe to read directly
-	default:
-		return "", fmt.Errorf("unsupported file type: %s - only plain text files (.txt, .md, .csv, .log) supported", ext)
+	for _, supported := range te.SupportedExtensions() {
+		if ext == supported {
+			return true
+		}
+	}
+	return false
+}
+
+func (te *TextExtractor) ExtractText(filePath string) (string, error) {
+	if !te.CanExtract(filePath) {
+		return "", fmt.Errorf("unsupported file type: %s", filepath.Ext(filePath))
 	}
 
-	// Simple file read (equivalent to 'cat')
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read file: %w", err)

@@ -20,7 +20,7 @@ type SummaryController struct {
 func NewSummaryController(db *gorm.DB, ollamaURL string) *SummaryController {
 	return &SummaryController{
 		db:           db,
-		ollamaClient: ollama.New(ollamaURL),
+		ollamaClient: ollama.New(ollamaURL, "gemma:2b"),
 	}
 }
 

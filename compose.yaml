@@ -16,21 +16,21 @@ services:
     ports:
       - ${PORT_OLLAMA}:11434
     volumes:
-      - ${DATA}/ollama:/root/.ollama
+      - ${DATA_PATH}/ollama:/root/.ollama
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     environment:
       OLLAMA_MODELS: "gemma:2b"
     command: serve
     restart: unless-stopped
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities:
-                - gpu
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities:
+    #             - gpu
 
 volumes:
   prabandh_pg_data:

@@ -6,10 +6,12 @@ import (
 	"strings"
 
 	"prabandh/database"
+	"prabandh/indexer"
 	"prabandh/models"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"gorm.io/gorm"
 )
 
 type model struct {
@@ -17,12 +19,13 @@ type model struct {
 	cursor    int
 	selected  string
 	operation string
-	message   string // Added to display feedback messages
-	inputMode bool   // New field to track if the program is in input mode
-	input     string // New field to store user input
+	message   string
+	inputMode bool
+	input     string
+	verbose   bool
 }
 
-func initialModel() model {
+func initialModel(verbose bool) model {
 	return model{
 		choices: []string{
 			"Add Directory to Index",
@@ -30,6 +33,7 @@ func initialModel() model {
 			"Search Files and Summaries",
 			"View Whitelisted Directories",
 			"View Blacklisted Directories",
+			"Toggle Verbose Mode",
 			"Exit",
 		},
 		cursor:    0,
@@ -38,6 +42,7 @@ func initialModel() model {
 		message:   "",
 		inputMode: false,
 		input:     "",
+		verbose:   verbose,
 	}
 }
 
@@ -49,17 +54,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if m.inputMode {
-			// Handle input mode
 			switch msg.String() {
 			case "enter":
-				m.message = handleOperation(m.operation, m.input)
+				m.message = m.handleOperation(m.operation, m.input)
 				m.inputMode = false
 				m.input = ""
 				m.operation = ""
 			case "esc":
 				m.inputMode = false
 				m.input = ""
-			case "backspace": // Handle backspace key
+			case "backspace":
 				if len(m.input) > 0 {
 					m.input = m.input[:len(m.input)-1]
 				}
@@ -90,6 +94,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.operation = "view_whitelisted"
 			case "View Blacklisted Directories":
 				m.operation = "view_blacklisted"
+			case "Toggle Verbose Mode":
+				m.verbose = !m.verbose
+				if m.verbose {
+					m.message = "Verbose mode enabled"
+				} else {
+					m.message = "Verbose mode disabled"
+				}
 			case "Exit":
 				return m, tea.Quit
 			}
@@ -104,13 +115,18 @@ func (m model) View() string {
 	}
 
 	if m.operation != "" {
-		m.message = handleOperation(m.operation, m.input)
-		m.operation = "" // Reset operation after handling
+		m.message = m.handleOperation(m.operation, m.input)
+		m.operation = ""
 	}
 
 	var b strings.Builder
 	title := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205")).Render("Prabandh CLI")
 	b.WriteString(title + "\n\n")
+
+	if m.verbose {
+		mode := lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Render("(verbose)")
+		b.WriteString(fmt.Sprintf("Mode: %s\n\n", mode))
+	}
 
 	for i, choice := range m.choices {
 		cursor := " "
@@ -128,130 +144,145 @@ func (m model) View() string {
 	return b.String()
 }
 
-func handleOperation(operation, input string) string {
+func (m model) handleOperation(operation, input string) string {
 	database.Connect()
 
 	switch operation {
 	case "add_directory_to_index":
 		dirPath := strings.TrimSpace(input)
+		if dirPath == "" {
+			return "Error: Directory path cannot be empty"
+		}
+
+		// Check if directory already exists
+		var existingDir models.IndexDir
+		if err := database.DB.Where("directory_location = ?", dirPath).First(&existingDir).Error; err == nil {
+			return fmt.Sprintf("Directory already indexed: %s", dirPath)
+		}
+
+		// Add to IndexDir
 		indexDir := models.IndexDir{DirectoryLocation: dirPath, IsWhitelisted: true}
 		if err := database.DB.Create(&indexDir).Error; err != nil {
 			return fmt.Sprintf("Error adding directory: %v", err)
 		}
-		return "Directory added successfully!"
+
+		// Index files
+		indexer := indexer.NewFileIndexer("http://localhost:5051", "gemma:2b", m.verbose)
+		indexer.IndexDirectory(dirPath)
+
+		return fmt.Sprintf("Successfully indexed directory: %s", dirPath)
+
 	case "delete_directory_from_index":
 		dirPath := strings.TrimSpace(input)
-		if err := database.DB.Where("directory_location = ?", dirPath).Delete(&models.IndexDir{}).Error; err != nil {
+		if dirPath == "" {
+			return "Error: Directory path cannot be empty"
+		}
+
+		// Delete directory and its associated files
+		err := database.DB.Transaction(func(tx *gorm.DB) error {
+			// Find the directory record
+			var dir models.IndexDir
+			if err := tx.Where("directory_location = ?", dirPath).First(&dir).Error; err != nil {
+				return err
+			}
+
+			// Delete associated files
+			if err := tx.Where("file_path LIKE ?", dirPath+"%").Delete(&models.FileIndex{}).Error; err != nil {
+				return err
+			}
+
+			// Delete the directory
+			return tx.Delete(&dir).Error
+		})
+
+		if err != nil {
 			return fmt.Sprintf("Error deleting directory: %v", err)
 		}
-		return "Directory deleted successfully!"
+		return fmt.Sprintf("Successfully deleted directory: %s", dirPath)
+
 	case "search_files_and_summaries":
 		query := strings.TrimSpace(input)
-		var result strings.Builder
-		var fileSearchResult, summarySearchResult string
-		var fileSearchErr, summarySearchErr error
-
-		// Channel to signal completion of goroutines
-		done := make(chan struct{}, 2)
-
-		// Search for files in a separate goroutine
-		go func() {
-			var fileResult strings.Builder
-			fileResult.WriteString("Files:\n")
-			rows, err := database.DB.Raw("SELECT file_name FROM file_indices WHERE file_name LIKE ?", "%"+query+"%").Rows()
-			if err != nil {
-				fileSearchErr = fmt.Errorf("Error searching files: %v", err)
-				done <- struct{}{}
-				return
-			}
-			defer rows.Close()
-			found := false
-			for rows.Next() {
-				var fileName string
-				if err := rows.Scan(&fileName); err != nil {
-					fileSearchErr = fmt.Errorf("Error reading file result: %v", err)
-					done <- struct{}{}
-					return
-				}
-				fileResult.WriteString(fileName + "\n")
-				found = true
-			}
-			if !found {
-				fileResult.WriteString("No files found.\n")
-			}
-			fileSearchResult = fileResult.String()
-			done <- struct{}{}
-		}()
-
-		// Search for summaries in a separate goroutine
-		go func() {
-			var summaryResult strings.Builder
-			summaryResult.WriteString("\nSummaries:\n")
-			rows, err := database.DB.Raw("SELECT summary_keyword FROM file_summaries WHERE summary_keyword LIKE ?", "%"+query+"%").Rows()
-			if err != nil {
-				summarySearchErr = fmt.Errorf("Error searching summaries: %v", err)
-				done <- struct{}{}
-				return
-			}
-			defer rows.Close()
-			found := false
-			for rows.Next() {
-				var summaryKeyword string
-				if err := rows.Scan(&summaryKeyword); err != nil {
-					summarySearchErr = fmt.Errorf("Error reading summary result: %v", err)
-					done <- struct{}{}
-					return
-				}
-				summaryResult.WriteString(summaryKeyword + "\n")
-				found = true
-			}
-			if !found {
-				summaryResult.WriteString("No summaries found.\n")
-			}
-			summarySearchResult = summaryResult.String()
-			done <- struct{}{}
-		}()
-
-		// Wait for both goroutines to complete
-		<-done
-		<-done
-
-		// Combine results
-		if fileSearchErr != nil {
-			result.WriteString(fileSearchErr.Error() + "\n")
-		} else {
-			result.WriteString(fileSearchResult)
+		if query == "" {
+			return "Error: Search query cannot be empty"
 		}
 
-		if summarySearchErr != nil {
-			result.WriteString(summarySearchErr.Error() + "\n")
+		var result strings.Builder
+
+		// Search files by name
+		var files []models.FileIndex
+		database.DB.Where("file_name LIKE ?", "%"+query+"%").Find(&files)
+		if len(files) > 0 {
+			result.WriteString("Matching Files:\n")
+			for _, file := range files {
+				result.WriteString(fmt.Sprintf("- %s (%s)\n", file.FileName, file.FilePath))
+			}
 		} else {
-			result.WriteString(summarySearchResult)
+			result.WriteString("No matching files found\n")
+		}
+
+		// Search by keywords
+		var summaries []models.FileSummary
+		database.DB.Where("summary_keyword LIKE ?", "%"+query+"%").Find(&summaries)
+
+		if len(summaries) > 0 {
+			result.WriteString("\nMatching Keywords:\n")
+			fileKeywords := make(map[string][]string)
+			for _, summary := range summaries {
+				var file models.FileIndex
+				database.DB.First(&file, summary.FileIndexID)
+				fileKeywords[file.FileName] = append(fileKeywords[file.FileName], summary.SummaryKeyword)
+			}
+
+			for fileName, keywords := range fileKeywords {
+				result.WriteString(fmt.Sprintf("- %s: %s\n", fileName, strings.Join(keywords, ", ")))
+			}
+		} else {
+			result.WriteString("\nNo matching keywords found\n")
 		}
 
 		return result.String()
+
 	case "view_whitelisted":
 		var dirs []models.IndexDir
 		database.DB.Where("is_whitelisted = ?", true).Find(&dirs)
-		var dirList []string
-		for _, dir := range dirs {
-			dirList = append(dirList, dir.DirectoryLocation)
+		if len(dirs) == 0 {
+			return "No whitelisted directories found"
 		}
-		return fmt.Sprintf("Whitelisted Directories:\n%s", strings.Join(dirList, "\n"))
+
+		var result strings.Builder
+		result.WriteString("Whitelisted Directories:\n")
+		for _, dir := range dirs {
+			// Count files in each directory
+			var count int64
+			database.DB.Model(&models.FileIndex{}).Where("file_path LIKE ?", dir.DirectoryLocation+"%").Count(&count)
+			result.WriteString(fmt.Sprintf("- %s (%d files)\n", dir.DirectoryLocation, count))
+		}
+		return result.String()
+
 	case "view_blacklisted":
 		var dirs []models.IndexDir
 		database.DB.Where("is_whitelisted = ?", false).Find(&dirs)
-		var dirList []string
-		for _, dir := range dirs {
-			dirList = append(dirList, dir.DirectoryLocation)
+		if len(dirs) == 0 {
+			return "No blacklisted directories found"
 		}
-		return fmt.Sprintf("Blacklisted Directories:\n%s", strings.Join(dirList, "\n"))
+
+		var result strings.Builder
+		result.WriteString("Blacklisted Directories:\n")
+		for _, dir := range dirs {
+			result.WriteString(fmt.Sprintf("- %s\n", dir.DirectoryLocation))
+		}
+		return result.String()
 	}
 	return "Invalid operation"
 }
 
 func main() {
-	p := tea.NewProgram(initialModel())
+	verbose := false // Start with verbose mode off by default
+	if len(os.Args) > 1 && os.Args[1] == "-v" {
+		verbose = true
+	}
+
+	p := tea.NewProgram(initialModel(verbose))
 	if err := p.Start(); err != nil {
 		fmt.Printf("Error starting CLI: %v\n", err)
 		os.Exit(1)
