@@ -12,14 +12,8 @@ We **serve** <sub>(prabandh)</sub> everthing, everywhere (provided you already h
 
 
 
-## Setup & Installation
-```bash
-pip install poetry
-poetry install
-```
-
-## Run
+## Setup & Run
 ```bach
 docker compose up -d
-poetry run python main.py
+go run ./cli/main.go
 ```
